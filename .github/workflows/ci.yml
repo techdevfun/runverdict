@@ -16,6 +16,11 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
+      # GitHub runners do not ship bun; the integration suite measures both
+      # runtimes for real, so install it (same major-floating pattern as node).
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
       - run: npm ci
       - run: npm test
       - run: npx tsc --noEmit
