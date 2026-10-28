@@ -1,0 +1,21 @@
+runverdict demo transcript
+Machine: node v24.22.1, bun 1.4.4
+Date: 2026-10-28T11:55:35Z (UTC)
+
+$ runverdict --version
+runverdict 0.1.0
+
+$ runverdict runtimes
+Runtime	Version	EOL status	EOL date
+node	24.22.1	Maintenance	2028-04-30
+bun	1.4.4	No EOL schedule (version only)	-
+
+$ runverdict measure --entry examples/sample-app.js --url /json --runtimes node,bun --duration 5 --connections 20 --json /tmp/runverdict-demo-out.json
+Runtime	Version	EOL	Load	Startup median (ms)	Req/s	p50 (ms)	p95 (ms)	Peak RSS (MB)
+node	24.22.1	Maintenance	ok	114	12675.8	1.0	4.0	81.3
+bun	1.4.4	n/a	ok	33	12614.8	1.0	4.0	60.8
+Verdict: UPGRADE-READY
+Reason: Current runtime node is Maintenance (EOL 2028-04-30). Target bun loads and measured 12614.8 req/s against 12675.8 req/s on node, within the 10% regression allowance.
+Note: single-machine measurement, not a general claim.
+JSON manifest written to /tmp/runverdict-demo-out.json
+exit code: 0

@@ -1,0 +1,35 @@
+{
+  "bin": {
+    "runverdict": "./dist/src/cli.js"
+  },
+  "description": "Measure your app across installed JS runtimes and get an upgrade verdict with reasons.",
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "node",
+    "bun",
+    "runtime",
+    "benchmark",
+    "upgrade",
+    "eol"
+  ],
+  "license": "MIT",
+  "name": "runverdict",
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc && node --test dist/tests/*.test.js",
+    "prepare": "tsc"
+  },
+  "type": "commonjs",
+  "version": "0.1.0",
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ]
+}
