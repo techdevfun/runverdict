@@ -36,6 +36,7 @@ function measured(
     peakRssMb: 30,
     requests: 100,
     errors: 0,
+    workloadNote: null,
   };
 }
 
@@ -111,6 +112,31 @@ test("verdict: STAY with a single measured runtime", () => {
   const result = decideVerdict([current], []);
   assert.equal(result.verdict, "STAY");
   assert.equal(result.target, null);
+});
+
+test("verdict: BLOCKED when a runtime loads but serves nothing, naming it", () => {
+  const current = measured("node", info("node", "Maintenance", "2028-04-30"), 1000);
+  const failed = {
+    ...measured("bun", info("bun", "not-applicable", null), null),
+    requests: 0,
+    workloadNote: "the server did not answer on the assigned workload port within the startup window",
+  };
+  const result = decideVerdict([current], [], [failed]);
+  assert.equal(result.verdict, "BLOCKED");
+  assert.match(result.reasons.join(" "), /bun/);
+  assert.match(result.reasons.join(" "), /passed the load check/);
+});
+
+test("verdict: load failures take precedence over workload failures", () => {
+  const loadFailed = { ...measured("node", info("node", "Maintenance", "2028-04-30"), null), loadOk: false, stderrTail: "boom" };
+  const workloadFailed = {
+    ...measured("bun", info("bun", "not-applicable", null), null),
+    requests: 0,
+    workloadNote: "the workload completed with 0 successful requests (0 errors)",
+  };
+  const result = decideVerdict([], [loadFailed], [workloadFailed]);
+  assert.equal(result.verdict, "BLOCKED");
+  assert.match(result.reasons.join(" "), /failed the load check/);
 });
 
 test("load check: a fixture that throws is captured, not a crash", async () => {
