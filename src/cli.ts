@@ -96,6 +96,7 @@ async function runMeasure(args: string[]): Promise<number> {
   const all: MeasuredRuntime[] = [];
   const measured: MeasuredRuntime[] = [];
   const loadFailures: MeasuredRuntime[] = [];
+  const workloadFailures: MeasuredRuntime[] = [];
   for (const name of requested) {
     const info = byName.get(name);
     if (info === undefined || !info.installed) {
@@ -137,8 +138,16 @@ async function runMeasure(args: string[]): Promise<number> {
         peakRssMb: null,
         requests: workload?.requests ?? 0,
         errors: workload?.errors ?? 0,
+        workloadNote:
+          workload === null
+            ? "the server did not answer on the assigned workload port within the startup window"
+            : `the workload completed with 0 successful requests (${workload.errors} errors)`,
       };
       all.push(failed);
+      // A runtime that loads but serves nothing is a verdict-relevant failure,
+      // not just an absent measurement: it must force BLOCKED, never be
+      // silently dropped from the comparison.
+      workloadFailures.push(failed);
       continue;
     }
     const result: MeasuredRuntime = {
@@ -157,7 +166,7 @@ async function runMeasure(args: string[]): Promise<number> {
     all.push(result);
     measured.push(result);
   }
-  const verdictResult = decideVerdict(measured, loadFailures);
+  const verdictResult = decideVerdict(measured, loadFailures, workloadFailures);
   console.log(measureTable(all));
   if (skipped.length > 0) {
     console.log(`Skipped (not installed): ${skipped.join(", ")}`);
