@@ -14,6 +14,13 @@ export interface MeasuredRuntime {
   peakRssMb: number | null;
   requests: number;
   errors: number;
+  /**
+   * Set when the runtime passed the load check but produced no usable
+   * workload measurement. Carries a short human-readable note about what
+   * happened (e.g. the server never answered on the workload port), so the
+   * verdict reason can name it. Null/absent means not applicable.
+   */
+  workloadNote?: string | null;
 }
 
 export interface VerdictResult {
@@ -31,15 +38,30 @@ function fmt(n: number): string {
  * Deterministic verdict rules. No model, no guessing.
  * current = first measured runtime in the requested order.
  * target  = the best-performing other measured runtime, if any.
+ *
+ * A runtime that loaded but served nothing is not silently dropped: it is
+ * reported as a workload failure and forces BLOCKED, because a verdict that
+ * ignores it would claim a comparison it never made.
  */
 export function decideVerdict(
   measured: MeasuredRuntime[],
   loadFailures: MeasuredRuntime[],
+  workloadFailures: MeasuredRuntime[] = [],
 ): VerdictResult {
   if (loadFailures.length > 0) {
     const reasons = loadFailures.map((f) => {
       const tail = f.stderrTail !== null && f.stderrTail !== "" ? `: ${f.stderrTail}` : "";
       return `${f.name} failed the load check${tail}`;
+    });
+    return { verdict: "BLOCKED", reasons, current: null, target: null };
+  }
+  if (workloadFailures.length > 0) {
+    const reasons = workloadFailures.map((f) => {
+      const detail =
+        f.workloadNote !== null && f.workloadNote !== undefined && f.workloadNote !== ""
+          ? `: ${f.workloadNote}`
+          : "";
+      return `${f.name} passed the load check but produced no usable measurement${detail}`;
     });
     return { verdict: "BLOCKED", reasons, current: null, target: null };
   }
