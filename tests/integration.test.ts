@@ -88,6 +88,68 @@ test("integration: measure on the sample app produces a JSON manifest matching t
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("integration: an app that answers 500 on every request serves zero successful requests", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "runverdict-500-"));
+  const entry = path.join(dir, "always-500.js");
+  fs.writeFileSync(
+    entry,
+    [
+      'const http = require("node:http");',
+      "const port = Number(process.env.PORT ?? 3000);",
+      'const server = http.createServer((req, res) => {',
+      '  res.writeHead(500, { "content-type": "application/json" });',
+      '  res.end(JSON.stringify({ error: "boom" }));',
+      "});",
+      'server.listen(port, "127.0.0.1", () => { console.log("500-app listening on " + port); });',
+      "",
+    ].join("\n"),
+  );
+  const workload = await httpWorkload("node", entry, dir, "/json", 2, 4);
+  assert.ok(workload !== null, "workload returned null");
+  assert.equal(workload.requests, 0, "500 responses must not count as served requests");
+  assert.ok(workload.errors > 0, "500 responses must count as errors");
+  assert.equal(workload.requestsPerSecond, 0);
+  assert.equal(workload.p50Ms, null);
+  assert.equal(workload.p95Ms, null);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("integration: measure on an always-500 app yields BLOCKED with exit 1, not a verdict", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "runverdict-500-cli-"));
+  const entry = path.join(dir, "always-500.js");
+  fs.writeFileSync(
+    entry,
+    [
+      'const http = require("node:http");',
+      "const port = Number(process.env.PORT ?? 3000);",
+      'const server = http.createServer((req, res) => {',
+      '  res.writeHead(500, { "content-type": "application/json" });',
+      '  res.end(JSON.stringify({ error: "boom" }));',
+      "});",
+      'server.listen(port, "127.0.0.1", () => { console.log("500-app listening on " + port); });',
+      "",
+    ].join("\n"),
+  );
+  const { code, stdout } = await runCli([
+    "measure",
+    "--entry",
+    entry,
+    "--url",
+    "/json",
+    "--runtimes",
+    "node,bun",
+    "--duration",
+    "2",
+    "--connections",
+    "4",
+  ]);
+  assert.equal(code, 1, stdout);
+  assert.match(stdout, /BLOCKED/);
+  assert.match(stdout, /0 successful requests/);
+  assert.doesNotMatch(stdout, /UPGRADE-READY/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("integration: a throwing fixture yields BLOCKED with exit 1, not a crash", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "runverdict-blocked-"));
   const entry = path.join(dir, "broken.js");
