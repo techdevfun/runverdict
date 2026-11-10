@@ -248,7 +248,18 @@ function singleRequest(port: number, urlPath: string, agent: http.Agent): Promis
     const started = Date.now();
     const req = http.get({ host: "127.0.0.1", port, path: urlPath, agent }, (res) => {
       res.resume();
-      res.on("end", () => resolve(Date.now() - started));
+      res.on("end", () => {
+        // Only a 2xx response counts as a served request. An error status
+        // (404, 500, ...) means the app did not serve the workload: counting
+        // it as a success would report a healthy req/s for an app that
+        // answers every request with an error.
+        const status = res.statusCode ?? 0;
+        if (status >= 200 && status < 300) {
+          resolve(Date.now() - started);
+        } else {
+          reject(new Error(`HTTP ${status}`));
+        }
+      });
     });
     req.on("error", reject);
   });
